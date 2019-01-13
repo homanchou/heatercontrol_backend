@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -171,7 +170,32 @@ func main() {
 
 	e := echo.New()
 	e.GET("/status", func(c echo.Context) error {
-		return c.String(http.StatusOK, fmt.Sprintf("Heater On ? %v", hs.HeaterOn))
+		return c.JSON(http.StatusOK, hs)
+	})
+	e.POST("/force_on", func(c echo.Context) error {
+		oneHourLater := GetLocalTime().Add(time.Hour * 1)
+		hs.ForcedOnTimeLimit = &oneHourLater
+		return c.JSON(http.StatusOK, hs)
+	})
+	e.DELETE("/force_on", func(c echo.Context) error {
+		hs.ForcedOnTimeLimit = nil
+		return c.JSON(http.StatusOK, hs)
+	})
+	e.POST("/economy_mode", func(c echo.Context) error {
+		hs.EconoMode = true
+		return c.JSON(http.StatusOK, hs)
+	})
+	e.DELETE("/economy_mode", func(c echo.Context) error {
+		hs.EconoMode = false
+		return c.JSON(http.StatusOK, hs)
+	})
+	e.POST("/force_off", func(c echo.Context) error {
+		hs.ForcedOff = true
+		return c.JSON(http.StatusOK, hs)
+	})
+	e.DELETE("/force_off", func(c echo.Context) error {
+		hs.ForcedOff = false
+		return c.JSON(http.StatusOK, hs)
 	})
 
 	if err := e.Start(":5000"); err != nil {
