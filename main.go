@@ -52,6 +52,7 @@ type HeaterState struct {
 	EconoMode         bool
 	ForcedOff         bool
 	ForcedOnTimeLimit *time.Time
+	HeaterOn          bool
 }
 
 func NewHeaterState() *HeaterState {
@@ -61,6 +62,7 @@ func NewHeaterState() *HeaterState {
 		EconoMode:         true,
 		ForcedOff:         false,
 		ForcedOnTimeLimit: nil,
+		HeaterOn:          false,
 	}
 }
 
@@ -77,15 +79,18 @@ func (hs *HeaterState) CheckWhatToDo(pc PinCtrl) {
 		localTime := GetLocalTime()
 		temp, err := readTemp()
 		if err != nil {
+			hs.HeaterOn = false
 			pc.TurnHeaterOff()
 			time.Sleep(60 * time.Second)
 		} else {
 			switch hs.NextAction(localTime, temp) {
 			case On:
 				log.Println("turn heater on ", localTime, temp)
+				hs.HeaterOn = true
 				pc.TurnHeaterOn()
 			case Off:
 				log.Println("turn heater off ", localTime, temp)
+				hs.HeaterOn = false
 				pc.TurnHeaterOff()
 			case NoAction:
 				log.Println("don't do anything", localTime, temp)
@@ -148,28 +153,17 @@ func readTemp() (temp float64, err error) {
 	return strconv.ParseFloat(string(body), 64)
 }
 
-func indexHandler(w http.ResponseWriter, r *http.Request) {
-	temp, err := readTemp()
-	if err != nil {
-		fmt.Fprintf(w, "unable to read haylie's room temp right now")
-	}
-	fmt.Fprintf(w, "current temp in Haylie's room is %v", temp)
-}
-
 func main() {
 	sigs := make(chan os.Signal, 1)
-	done := make(chan bool, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 	pinCtrl := &PinCtrlMock{}
 	pinCtrl.InitializePin()
 
 	go func(pc PinCtrl) {
-		sig := <-sigs
+		<-sigs
 		pc.TearDown()
-		fmt.Println()
-		fmt.Println(sig)
-		done <- true
+		os.Exit(0)
 	}(pinCtrl)
 
 	hs := NewHeaterState()
@@ -177,18 +171,12 @@ func main() {
 
 	e := echo.New()
 	e.GET("/", func(c echo.Context) error {
-		temp, err := readTemp()
-		if err != nil {
-			return c.String(http.StatusOK, "Unable to read haylie's room temp right now")
-		}
-		return c.String(http.StatusOK, fmt.Sprintf("Haylie's temp is %v", temp))
+
+		return c.String(http.StatusOK, fmt.Sprintf("Heater On ? %v", hs.HeaterOn))
 	})
 
 	if err := e.Start(":5000"); err != nil {
 		e.Logger.Info("Error starting server")
 	}
-
-	<-done
-	fmt.Println("exiting")
 
 }

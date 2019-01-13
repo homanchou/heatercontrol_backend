@@ -45,14 +45,14 @@ func (pcrp *PinCtrlRaspberryPi) TearDown() {
 type PinCtrlMock struct{}
 
 func (pcm *PinCtrlMock) InitializePin() {
-
+	log.Println("Mock initialize gpio pin")
 }
 func (pcm *PinCtrlMock) TurnHeaterOn() {
-
+	log.Println("Mock turn heater on")
 }
 func (pcm *PinCtrlMock) TurnHeaterOff() {
-
+	log.Println("Mock turn heater off")
 }
 func (pcm *PinCtrlMock) TearDown() {
-
+	log.Println("Mock tear down")
 }
