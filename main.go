@@ -170,8 +170,7 @@ func main() {
 	go hs.CheckWhatToDo(pinCtrl)
 
 	e := echo.New()
-	e.GET("/", func(c echo.Context) error {
-
+	e.GET("/status", func(c echo.Context) error {
 		return c.String(http.StatusOK, fmt.Sprintf("Heater On ? %v", hs.HeaterOn))
 	})
 
