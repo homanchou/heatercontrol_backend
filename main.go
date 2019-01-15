@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo"
+	"github.com/labstack/echo/middleware"
 	rpio "github.com/stianeikeland/go-rpio"
 )
 
@@ -46,12 +47,12 @@ Auto should return to EnergySavingAuto
 var pin18 rpio.Pin
 
 type HeaterState struct {
-	MinTemp           float64
-	MaxTemp           float64
-	EconoMode         bool
-	ForcedOff         bool
-	ForcedOnTimeLimit *time.Time
-	HeaterOn          bool
+	MinTemp           float64    `json:"min_temp"`
+	MaxTemp           float64    `json:"max_temp"`
+	EconoMode         bool       `json:"econo_mode"`
+	Disabled          bool       `json:"disabled"`
+	ForcedOnTimeLimit *time.Time `json:"forced_on_time_limit"`
+	HeaterOn          bool       `json:"heater_on"`
 }
 
 func NewHeaterState() *HeaterState {
@@ -59,7 +60,7 @@ func NewHeaterState() *HeaterState {
 		MinTemp:           70.99,
 		MaxTemp:           72.1,
 		EconoMode:         true,
-		ForcedOff:         false,
+		Disabled:          false,
 		ForcedOnTimeLimit: nil,
 		HeaterOn:          false,
 	}
@@ -101,7 +102,7 @@ func (hs *HeaterState) CheckWhatToDo(pc PinCtrl) {
 
 func (hs *HeaterState) NextAction(localTime time.Time, temp float64) HeaterCommand {
 
-	if hs.ForcedOff {
+	if hs.Disabled {
 		return Off //no-op
 	}
 	if hs.ForcedOnTimeLimit != nil && localTime.Before(*hs.ForcedOnTimeLimit) {
@@ -169,6 +170,10 @@ func main() {
 	go hs.CheckWhatToDo(pinCtrl)
 
 	e := echo.New()
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"*"},
+		AllowHeaders: []string{"*"},
+	}))
 	e.GET("/status", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, hs)
 	})
@@ -189,12 +194,12 @@ func main() {
 		hs.EconoMode = false
 		return c.JSON(http.StatusOK, hs)
 	})
-	e.POST("/force_off", func(c echo.Context) error {
-		hs.ForcedOff = true
+	e.POST("/disable", func(c echo.Context) error {
+		hs.Disabled = true
 		return c.JSON(http.StatusOK, hs)
 	})
-	e.DELETE("/force_off", func(c echo.Context) error {
-		hs.ForcedOff = false
+	e.DELETE("/disable", func(c echo.Context) error {
+		hs.Disabled = false
 		return c.JSON(http.StatusOK, hs)
 	})
 

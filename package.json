@@ -2,15 +2,32 @@
     "name": "heater-control",
     "version": "1.0.0",
     "description": "Frontend for heater control",
-    "dependencies": {},
+    "dependencies": {
+        "@glennsl/bs-json": "^3.0.0",
+        "bs-fetch": "^0.3.1",
+        "bs-glamor": "^0.2.0",
+        "react": "^16.2.0",
+        "react-dom": "^16.2.0",
+        "reason-react": ">=0.4.0"
+    },
     "devDependencies": {
         "webpack": "^4.17.1",
         "webpack-cli": "^3.1.0",
         "copy-webpack-plugin": "^4.5.2",
-        "webpack-dev-server": "^3.1.5"
+        "webpack-dev-server": "^3.1.5",
+        "bs-platform": "^4.0.6",
+        "css-loader": "^2.0.0",
+        "style-loader": "^0.23.1"
     },
     "scripts": {
         "start": "webpack && webpack-dev-server --mode development",
-        "build": "webpack"
+        "build": "webpack",
+        "dev:build": "bsb -make-world",
+        "dev:watch": "bsb -make-world -w",
+        "dev:server": "webpack-dev-server",
+        "dev:clean": "bsb -clean-world",
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "webpack": "webpack -w",
+        "webpack:production": "NODE_ENV=production webpack"
     }
 }
