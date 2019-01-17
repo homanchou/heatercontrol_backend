@@ -1,6 +1,6 @@
 open Belt;
 
-let url = "http://localhost:5000/status";
+let url = "http://localhost:5000/";
 
 type heaterStatus = {
   minTemp: float,
@@ -17,7 +17,8 @@ type state =
 type action =
   | GetStatus
   | GotStatus(heaterStatus)
-  | Disable;
+  | Disable
+  | Enable;
 
 let component = ReasonReact.reducerComponent(__MODULE__);
 
@@ -34,9 +35,29 @@ module Api = {
          ),
   };
 
+  let enable = () =>
+    Js.Promise.(
+      Fetch.fetchWithInit(
+        url ++ "disable",
+        Fetch.RequestInit.make(~method_=Delete, ()),
+      )
+      |> then_(Fetch.Response.json)
+      |> then_(json => decode(json) |> resolve)
+    );
+
+  let disable = () =>
+    Js.Promise.(
+      Fetch.fetchWithInit(
+        url ++ "disable",
+        Fetch.RequestInit.make(~method_=Post, ()),
+      )
+      |> then_(Fetch.Response.json)
+      |> then_(json => decode(json) |> resolve)
+    );
+
   let getStatus = () =>
     Js.Promise.(
-      Fetch.fetch(url)
+      Fetch.fetch(url ++ "status")
       |> then_(Fetch.Response.json)
       |> then_(json => decode(json) |> resolve)
     );
@@ -47,8 +68,28 @@ let make = _children => {
   initialState: () => Unknown,
   reducer: (action, state: state) => {
     switch (action) {
+    | Enable =>
+      ReasonReact.SideEffects(
+        self => {
+          Js.log("side effect enable called");
+          Api.enable()
+          |> Js.Promise.then_(heaterStatus =>
+               self.send(GotStatus(heaterStatus)) |> Js.Promise.resolve
+             );
+          ();
+        },
+      )
     | Disable =>
-      ReasonReact.SideEffects(self => Js.log("side effect disable called"))
+      ReasonReact.SideEffects(
+        self => {
+          Js.log("side effect disable called");
+          Api.disable()
+          |> Js.Promise.then_(heaterStatus =>
+               self.send(GotStatus(heaterStatus)) |> Js.Promise.resolve
+             );
+          ();
+        },
+      )
     | GotStatus(htrSts) => ReasonReact.Update(Known(htrSts))
     | GetStatus =>
       ReasonReact.SideEffects(
@@ -66,19 +107,35 @@ let make = _children => {
     self.send(GetStatus);
   },
   render: self => {
+    let toggle = currentlyDisabled => {
+      Js.log2("value of currently Enabled", currentlyDisabled);
+      if (currentlyDisabled) {
+        self.send(Enable);
+      } else {
+        self.send(Disable);
+      };
+      ();
+    };
     switch (self.state) {
     | Unknown => <div> {ReasonReact.string("Unknown")} </div>
     | Known(hs) =>
       <div>
-        <h1> {ReasonReact.string("Enabled")} </h1>
+        <h1>
+          {ReasonReact.string(
+             hs.disabled ? "Heater is Disabled" : "Heater is Enabled",
+           )}
+        </h1>
         <label className="switch">
           <input
             type_="checkbox"
             checked={!hs.disabled}
-            onClick={_ => self.send(Disable)}
+            onClick={_ => toggle(hs.disabled)}
           />
           <span className="slider round" />
         </label>
+        {hs.disabled ?
+           <div> {ReasonReact.string("The heater is at ")} </div> :
+           ReasonReact.null}
       </div>
     };
   },
