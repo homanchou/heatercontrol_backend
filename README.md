@@ -1,0 +1,21 @@
+Commands
+
+User initiated:
+SetMaxTemp
+SetMinTemp
+Disable
+Enable
+
+UpdateTemperatureReading
+ResetDefaultTemperatureRange
+
+Events
+
+MaxTempUpdated
+CustomRangeLimitUpdated
+MinTempUpdated
+HeaterDisabled
+HeaterEnabled
+HeaterTurnedOn
+HeaterTurnedOff
+TemperatureReadingUpdated

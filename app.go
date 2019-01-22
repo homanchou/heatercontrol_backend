@@ -16,10 +16,12 @@ type App struct {
 }
 
 func NewMockApp() App {
+	mpc := &MockPinCtrl{}
+	msr := &MockSensorReader{}
 	return App{
-		pinCtrl:           &MockPinCtrl{},
-		temperatureReader: &MockSensorReader{},
-		heaterState:       &HeaterState{},
+		pinCtrl:           mpc,
+		temperatureReader: msr,
+		heaterState:       NewHeaterState(),
 	}
 }
 
@@ -27,7 +29,7 @@ func NewApp() App {
 	return App{
 		pinCtrl:           &RaspberryPiPinCtrl{},
 		temperatureReader: &SensorReader{},
-		heaterState:       &HeaterState{},
+		heaterState:       NewHeaterState(),
 	}
 }
 
@@ -40,37 +42,27 @@ func (app *App) TearDown() {
 }
 
 func (app *App) StartWebServer() {
+	go func() {
+		app.RefreshHeater()
+		time.Sleep(10 * time.Second)
+	}()
 	e := echo.New()
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
 		AllowHeaders: []string{"*"},
 	}), middleware.Logger())
 	e.GET("/status", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, app.heaterState)
-	})
-	e.POST("/force_on", func(c echo.Context) error {
-		oneHourLater := GetLocalTime().Add(time.Hour * 1)
-		app.heaterState.ForcedOnTimeLimit = &oneHourLater
-		return c.JSON(http.StatusOK, app.heaterState)
-	})
-	e.DELETE("/force_on", func(c echo.Context) error {
-		app.heaterState.ForcedOnTimeLimit = nil
-		return c.JSON(http.StatusOK, app.heaterState)
-	})
-	e.POST("/economy_mode", func(c echo.Context) error {
-		app.heaterState.EconoMode = true
-		return c.JSON(http.StatusOK, app.heaterState)
-	})
-	e.DELETE("/economy_mode", func(c echo.Context) error {
-		app.heaterState.EconoMode = false
+		app.RefreshHeater()
 		return c.JSON(http.StatusOK, app.heaterState)
 	})
 	e.POST("/disable", func(c echo.Context) error {
 		app.heaterState.Disabled = true
+		app.RefreshHeater()
 		return c.JSON(http.StatusOK, app.heaterState)
 	})
 	e.DELETE("/disable", func(c echo.Context) error {
 		app.heaterState.Disabled = false
+		app.RefreshHeater()
 		return c.JSON(http.StatusOK, app.heaterState)
 	})
 
@@ -84,19 +76,15 @@ func (app *App) RefreshHeater() {
 	localTime := GetLocalTime()
 	temp, err := app.temperatureReader.ReadTemperature()
 	if err != nil {
-		log.Println("error reading temp", err)
-		app.heaterState.HeaterOn = false
+		log.Println("error", err)
 		app.pinCtrl.TurnHeaterOff()
 	} else {
-		app.heaterState.LastTempReading = temp
-		switch app.heaterState.NextAction(localTime, temp) {
+		switch app.heaterState.RefreshTimeAndTemp(localTime, temp) {
 		case On:
 			log.Println("turn heater on ", localTime, temp)
-			app.heaterState.HeaterOn = true
 			app.pinCtrl.TurnHeaterOn()
 		case Off:
 			log.Println("turn heater off ", localTime, temp)
-			app.heaterState.HeaterOn = false
 			app.pinCtrl.TurnHeaterOff()
 		case NoAction:
 			log.Println("don't do anything", localTime, temp)

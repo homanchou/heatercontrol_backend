@@ -15,7 +15,8 @@ type PinCtrl interface {
 }
 
 type RaspberryPiPinCtrl struct {
-	pin rpio.Pin
+	pin      rpio.Pin
+	HeaterOn bool
 }
 
 func (rppc *RaspberryPiPinCtrl) InitializePin() {
@@ -32,29 +33,36 @@ func (rppc *RaspberryPiPinCtrl) InitializePin() {
 
 func (rppc *RaspberryPiPinCtrl) TurnHeaterOn() {
 	rppc.pin.High()
+	rppc.HeaterOn = true
 }
 
 func (rppc *RaspberryPiPinCtrl) TurnHeaterOff() {
 	rppc.pin.Low()
+	rppc.HeaterOn = false
 }
 
 func (rppc *RaspberryPiPinCtrl) TearDown() {
-	rppc.pin.Low()
+	rppc.TurnHeaterOff()
 	rpio.Close()
 	fmt.Println("shutting down")
 }
 
-type MockPinCtrl struct{}
+type MockPinCtrl struct {
+	HeaterOn bool
+}
 
 func (pcm *MockPinCtrl) InitializePin() {
 	log.Println("Mock initialize gpio pin")
 }
 func (pcm *MockPinCtrl) TurnHeaterOn() {
+	pcm.HeaterOn = true
 	log.Println("Mock turn heater on")
 }
 func (pcm *MockPinCtrl) TurnHeaterOff() {
+	pcm.HeaterOn = true
 	log.Println("Mock turn heater off")
 }
 func (pcm *MockPinCtrl) TearDown() {
+	pcm.TurnHeaterOff()
 	log.Println("Mock tear down")
 }

@@ -5,9 +5,11 @@ let url = "http://localhost:5000/";
 type heaterStatus = {
   minTemp: float,
   maxTemp: float,
+  lastTempReading: float,
   econoMode: bool,
   disabled: bool,
   forcedOnTimeLimit: option(Js.Date.t),
+  heaterOn: bool,
 };
 
 type state =
@@ -24,6 +26,9 @@ let component = ReasonReact.reducerComponent(__MODULE__);
 
 module Api = {
   let decode = (j: Js.Json.t): heaterStatus => {
+    lastTempReading:
+      j |> Json.Decode.field("last_temp_reading", Json.Decode.float),
+    heaterOn: j |> Json.Decode.field("heater_on", Json.Decode.bool),
     minTemp: j |> Json.Decode.field("min_temp", Json.Decode.float),
     maxTemp: j |> Json.Decode.field("max_temp", Json.Decode.float),
     econoMode: j |> Json.Decode.field("econo_mode", Json.Decode.bool),
@@ -121,10 +126,25 @@ let make = _children => {
     | Known(hs) =>
       <div>
         <h1>
-          {ReasonReact.string(
-             hs.disabled ? "Heater is Disabled" : "Heater is Enabled",
-           )}
+          {ReasonReact.string(hs.heaterOn ? "Heater is ON" : "Heater is OFF")}
         </h1>
+        <h2>
+          {ReasonReact.string(
+             "Temperature: " ++ string_of_float(hs.lastTempReading),
+           )}
+        </h2>
+        <h3>
+          {ReasonReact.string(
+             "Heater will turn on when temp is below: "
+             ++ string_of_float(hs.minTemp),
+           )}
+        </h3>
+        <h3>
+          {ReasonReact.string(
+             "Heater will turn off when temp is above: "
+             ++ string_of_float(hs.maxTemp),
+           )}
+        </h3>
         <label className="switch">
           <input
             type_="checkbox"

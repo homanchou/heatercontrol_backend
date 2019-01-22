@@ -16,67 +16,144 @@ var _ = Describe("Heatercontrol", func() {
 	dayTime, _ := time.Parse(
 		time.RFC3339,
 		"2019-01-12T11:04:32-08:00")
+	myMaxTemp := 99.9
+	myMinTemp := 45.0
+	// Allow user to control a MaxTemp and a MinTemp.
 
-	coldTemp := 69.0
-	warmTemp := 75.0
-	var hs *HeaterState
-	BeforeEach(func() {
-		hs = NewHeaterState()
-	})
-	Context("night time", func() {
-		It("should turn heater on if cold", func() {
-			Expect(hs.NextAction(nightTime, coldTemp)).To(Equal(On))
-		})
-		It("should turn heater off if warm", func() {
-			Expect(hs.NextAction(nightTime, warmTemp)).To(Equal(Off))
-		})
-	})
-	Context("day time", func() {
-		It("should keep heater off even if cold to save resources", func() {
-			Expect(hs.NextAction(dayTime, coldTemp)).To(Equal(Off))
-		})
-		It("should keep heater off if warm", func() {
-			Expect(hs.NextAction(dayTime, warmTemp)).To(Equal(Off))
-		})
-		It("should allow heater on if econo turned off and it's cold", func() {
-			hs.EconoMode = false
-			// hs.TurnOffEconoMode()
-			Expect(hs.NextAction(dayTime, coldTemp)).To(Equal(On))
-		})
-	})
-	Context("Econo Mode Resumes", func() {
-		It("doesn't resume during the day", func() {
-			hs.EconoMode = false
-			hs.NextAction(dayTime, warmTemp)
-			Expect(hs.EconoMode).To(Equal(false))
-		})
-		It("resumes at night", func() {
-			hs.EconoMode = false
-			hs.NextAction(nightTime, warmTemp)
-			Expect(hs.EconoMode).To(Equal(true))
-			hs.EconoMode = false
-			hs.NextAction(nightTime, coldTemp)
-			Expect(hs.EconoMode).To(Equal(true))
+	// Allow unit to poll for current Temp every 10 seconds
+
+	Context("Allow unit to transition max and min temp when going from daylight to evening and vice versa", func() {
+		It("does not reset temps when staying daytime to daytime", func() {
+			hs := HeaterState{
+				MaxTemp:       DefaultDaytimeMaxTemp,
+				MinTemp:       DefaultDaytimeMinTemp,
+				LastUpdatedAt: dayTime,
+			}
+			newTemp := 72.0
+			hs.RefreshTimeAndTemp(dayTime, newTemp)
+			Expect(hs.MaxTemp).To(Equal(DefaultDaytimeMaxTemp))
+			Expect(hs.MinTemp).To(Equal(DefaultDaytimeMinTemp))
 
 		})
-	})
-	Context("force heater on", func() {
-		It("Keeps heater on even during the day and it's not cold", func() {
-			oneHourFromNow := dayTime.Add(time.Hour * 1)
-			hs.ForcedOnTimeLimit = &oneHourFromNow
-			Expect(hs.NextAction(dayTime, warmTemp)).To(Equal(On))
-		})
-		It("Resumes regular behavior after time is up", func() {
-			oneHourAgo := dayTime.Add(time.Hour * -1)
-			hs.ForcedOnTimeLimit = &oneHourAgo
-			Expect(hs.NextAction(dayTime, warmTemp)).To(Equal(Off))
+		It("resets temps when transition night to day", func() {
+			hs := HeaterState{
+				MaxTemp:       DefaultNighttimeMaxTemp,
+				MinTemp:       DefaultNighttimeMinTemp,
+				LastUpdatedAt: nightTime,
+			}
+			newTemp := 72.0
+
+			hs.RefreshTimeAndTemp(dayTime, newTemp)
+			Expect(hs.MaxTemp).To(Equal(DefaultDaytimeMaxTemp))
+			Expect(hs.MinTemp).To(Equal(DefaultDaytimeMinTemp))
+
 		})
 
 	})
-	Context("heater forced off", func() {
-		It("always gives back heater off", func() {
-			hs.ForcedOff = true
-			Expect(hs.NextAction(nightTime, coldTemp)).To(Equal(Off))
+	Context("Allow unit to return maxTemp and minTemp back to regularly scheduled defaults 1 hour after user adjusted", func() {
+		It("keeps min and max if timer not run out even if transitioning from night to day", func() {
+
+			timerEnd := dayTime.Add(1 * time.Minute)
+			hs := HeaterState{
+				MaxTemp:              myMaxTemp,
+				MinTemp:              myMinTemp,
+				LastUpdatedAt:        nightTime,
+				CustomRangeTimeLimit: &timerEnd,
+			}
+			newTemp := 72.0
+			hs.RefreshTimeAndTemp(dayTime, newTemp)
+			Expect(hs.MaxTemp).To(Equal(myMaxTemp))
+			Expect(hs.MinTemp).To(Equal(myMinTemp))
+
+		})
+		It("goes back to day if timer ends in the day", func() {
+
+			timerEnd := dayTime.Add(-1 * time.Minute)
+			hs := HeaterState{
+				MaxTemp:              myMaxTemp,
+				MinTemp:              myMinTemp,
+				LastUpdatedAt:        dayTime,
+				CustomRangeTimeLimit: &timerEnd,
+			}
+			newTemp := 72.0
+
+			hs.RefreshTimeAndTemp(dayTime, newTemp)
+			Expect(hs.MaxTemp).To(Equal(DefaultDaytimeMaxTemp))
+			Expect(hs.MinTemp).To(Equal(DefaultDaytimeMinTemp))
+		})
+		It("goes back to night if timer ends in the night", func() {
+
+			timerEnd := nightTime.Add(-1 * time.Minute)
+			hs := HeaterState{
+				MaxTemp:              myMaxTemp,
+				MinTemp:              myMinTemp,
+				LastUpdatedAt:        nightTime,
+				CustomRangeTimeLimit: &timerEnd,
+			}
+			newTemp := 72.0
+
+			hs.RefreshTimeAndTemp(nightTime, newTemp)
+			Expect(hs.MaxTemp).To(Equal(DefaultNighttimeMaxTemp))
+			Expect(hs.MinTemp).To(Equal(DefaultNighttimeMinTemp))
+		})
+	})
+
+	Context("Allow unit to turn heater On or Off based on Temp", func() {
+		It("returns heater off command if current temp hotter than max", func() {
+
+			hs := HeaterState{
+				MaxTemp:       myMaxTemp,
+				MinTemp:       myMinTemp,
+				LastUpdatedAt: nightTime,
+			}
+			newTemp := 100.0
+			command := hs.RefreshTimeAndTemp(nightTime, newTemp)
+			Expect(command).To(Equal(Off))
+		})
+		It("returns heater on command if current temp too cold", func() {
+
+			hs := HeaterState{
+				MaxTemp:       myMaxTemp,
+				MinTemp:       myMinTemp,
+				LastUpdatedAt: nightTime,
+			}
+			newTemp := 30.0
+			command := hs.RefreshTimeAndTemp(nightTime, newTemp)
+			Expect(command).To(Equal(On))
+		})
+		It("does nothing if in range", func() {
+
+			hs := HeaterState{
+				MaxTemp:       myMaxTemp,
+				MinTemp:       myMinTemp,
+				LastUpdatedAt: nightTime,
+			}
+			newTemp := 50.0
+			command := hs.RefreshTimeAndTemp(nightTime, newTemp)
+			Expect(command).To(Equal(NoAction))
+		})
+	})
+	Context("Allow user to control Disable and Enable.", func() {
+		It("disables heater", func() {
+			hs := HeaterState{
+				MaxTemp:       myMaxTemp,
+				MinTemp:       myMinTemp,
+				LastUpdatedAt: nightTime,
+			}
+			hs.Disable()
+			Expect(hs.Disabled).To(Equal(true))
+
+			command := hs.RefreshTimeAndTemp(nightTime, myMinTemp-0.5)
+			Expect(command).To(Equal(Off))
+		})
+		It("enables heater", func() {
+			hs := HeaterState{
+				MaxTemp:       myMaxTemp,
+				MinTemp:       myMinTemp,
+				LastUpdatedAt: nightTime,
+			}
+			hs.Enable()
+			Expect(hs.Disabled).To(Equal(false))
 		})
 	})
 
