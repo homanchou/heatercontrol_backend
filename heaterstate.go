@@ -24,15 +24,25 @@ type HeaterState struct {
 	mu sync.Mutex
 }
 
-func NewHeaterState() *HeaterState {
+func NewHeaterState(localTime time.Time, temp float64) *HeaterState {
+	var minTemp float64
+	var maxTemp float64
+	if IsDayTime(localTime) {
+		minTemp = DefaultDaytimeMinTemp
+		maxTemp = DefaultDaytimeMaxTemp
+	} else {
+		minTemp = DefaultNighttimeMinTemp
+		maxTemp = DefaultNighttimeMaxTemp
+	}
+
 	return &HeaterState{
-		MinTemp:              DefaultDaytimeMinTemp,
-		MaxTemp:              DefaultDaytimeMaxTemp,
+		MinTemp:              minTemp,
+		MaxTemp:              maxTemp,
 		Disabled:             false,
 		CustomRangeTimeLimit: nil,
 		// HeaterOn:             false,
-		LastTempReading: 73.3,
-		LastUpdatedAt:   time.Now(),
+		LastTempReading: temp,
+		LastUpdatedAt:   localTime,
 		// pinCtrl:              pc,
 		// tempReader:           tr,
 	}
@@ -78,7 +88,14 @@ func (hs *HeaterState) RefreshTimeAndTemp(newTime time.Time, newTemp float64) He
 
 func (hs *HeaterState) SetMaxTemp(temp float64) {
 	hs.MaxTemp = temp
+}
 
+func (hs *HeaterState) SetMinTemp(temp float64) {
+	hs.MinTemp = temp
+}
+
+func (hs *HeaterState) SetCustomRangeTimeOut(expireTime time.Time) {
+	hs.CustomRangeTimeLimit = &expireTime
 }
 
 func (hs *HeaterState) Disable() {

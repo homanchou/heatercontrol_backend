@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/labstack/echo"
@@ -21,15 +22,17 @@ func NewMockApp() App {
 	return App{
 		pinCtrl:           mpc,
 		temperatureReader: msr,
-		heaterState:       NewHeaterState(),
+		heaterState:       NewHeaterState(GetLocalTime(), 71.0),
 	}
 }
 
 func NewApp() App {
+	sensorReader := SensorReader{}
+	temp, _ := sensorReader.ReadTemperature()
 	return App{
 		pinCtrl:           &RaspberryPiPinCtrl{},
-		temperatureReader: &SensorReader{},
-		heaterState:       NewHeaterState(),
+		temperatureReader: &sensorReader,
+		heaterState:       NewHeaterState(GetLocalTime(), temp),
 	}
 }
 
@@ -39,6 +42,24 @@ func (app *App) Initialize() {
 
 func (app *App) TearDown() {
 	app.pinCtrl.TearDown()
+}
+
+type State struct {
+	MinTemp  float64 `json:"min_temp"`
+	MaxTemp  float64 `json:"max_temp"`
+	Temp     float64 `json:"temp"`
+	Disabled bool    `json:"disabled"`
+	HeaterOn bool    `json:"heater_on"`
+}
+
+func (app *App) GetState() State {
+	return State{
+		MinTemp:  app.heaterState.MinTemp,
+		MaxTemp:  app.heaterState.MaxTemp,
+		Temp:     app.heaterState.LastTempReading,
+		Disabled: app.heaterState.Disabled,
+		HeaterOn: app.pinCtrl.IsHeaterOn(),
+	}
 }
 
 func (app *App) StartWebServer() {
@@ -53,17 +74,45 @@ func (app *App) StartWebServer() {
 	}), middleware.Logger())
 	e.GET("/status", func(c echo.Context) error {
 		app.RefreshHeater()
-		return c.JSON(http.StatusOK, app.heaterState)
+		return c.JSON(http.StatusOK, app.GetState())
 	})
 	e.POST("/disable", func(c echo.Context) error {
-		app.heaterState.Disabled = true
+		app.heaterState.Disable()
 		app.RefreshHeater()
-		return c.JSON(http.StatusOK, app.heaterState)
+		return c.JSON(http.StatusOK, app.GetState())
 	})
-	e.DELETE("/disable", func(c echo.Context) error {
-		app.heaterState.Disabled = false
+	e.POST("/enable", func(c echo.Context) error {
+		app.heaterState.Enable()
 		app.RefreshHeater()
-		return c.JSON(http.StatusOK, app.heaterState)
+		return c.JSON(http.StatusOK, app.GetState())
+	})
+	e.POST("/set_max_temp/:max_temp", func(c echo.Context) error {
+		maxTempParam := c.Param("max_temp")
+		maxTemp, err := strconv.ParseFloat(maxTempParam, 64)
+		if err != nil {
+			return c.JSON(http.StatusNotAcceptable, err)
+		}
+		app.heaterState.SetMaxTemp(maxTemp)
+		if maxTemp <= app.heaterState.MinTemp {
+			app.heaterState.SetMinTemp(maxTemp - 0.1)
+		}
+		app.heaterState.SetCustomRangeTimeOut(GetLocalTime().Add(1 * time.Hour))
+		app.RefreshHeater()
+		return c.JSON(http.StatusOK, app.GetState())
+	})
+	e.POST("/set_min_temp/:min_temp", func(c echo.Context) error {
+		minTempParam := c.Param("min_temp")
+		minTemp, err := strconv.ParseFloat(minTempParam, 64)
+		if err != nil {
+			return c.JSON(http.StatusNotAcceptable, err)
+		}
+		app.heaterState.SetMinTemp(minTemp)
+		if minTemp >= app.heaterState.MaxTemp {
+			app.heaterState.SetMaxTemp(minTemp + 0.1)
+		}
+		app.heaterState.SetCustomRangeTimeOut(GetLocalTime().Add(1 * time.Hour))
+		app.RefreshHeater()
+		return c.JSON(http.StatusOK, app.GetState())
 	})
 
 	if err := e.Start(":5000"); err != nil {

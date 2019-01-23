@@ -12,6 +12,7 @@ type PinCtrl interface {
 	TurnHeaterOn()
 	TurnHeaterOff()
 	TearDown()
+	IsHeaterOn() bool
 }
 
 type RaspberryPiPinCtrl struct {
@@ -29,6 +30,7 @@ func (rppc *RaspberryPiPinCtrl) InitializePin() {
 	rppc.pin.Output()
 	rppc.pin.Low()
 	log.Println("Raspberry Pi Pin Initialized")
+	rppc.HeaterOn = false
 }
 
 func (rppc *RaspberryPiPinCtrl) TurnHeaterOn() {
@@ -46,12 +48,16 @@ func (rppc *RaspberryPiPinCtrl) TearDown() {
 	rpio.Close()
 	fmt.Println("shutting down")
 }
+func (rppc *RaspberryPiPinCtrl) IsHeaterOn() bool {
+	return rppc.HeaterOn
+}
 
 type MockPinCtrl struct {
 	HeaterOn bool
 }
 
 func (pcm *MockPinCtrl) InitializePin() {
+	pcm.HeaterOn = false
 	log.Println("Mock initialize gpio pin")
 }
 func (pcm *MockPinCtrl) TurnHeaterOn() {
@@ -59,10 +65,13 @@ func (pcm *MockPinCtrl) TurnHeaterOn() {
 	log.Println("Mock turn heater on")
 }
 func (pcm *MockPinCtrl) TurnHeaterOff() {
-	pcm.HeaterOn = true
+	pcm.HeaterOn = false
 	log.Println("Mock turn heater off")
 }
 func (pcm *MockPinCtrl) TearDown() {
 	pcm.TurnHeaterOff()
 	log.Println("Mock tear down")
+}
+func (pcm *MockPinCtrl) IsHeaterOn() bool {
+	return pcm.HeaterOn
 }
