@@ -8,16 +8,20 @@
         "bs-glamor": "^0.2.0",
         "react": "^16.2.0",
         "react-dom": "^16.2.0",
+        "react-dual-range-slider": "^1.0.4",
+        "react-intl": "^2.8.0",
         "reason-react": ">=0.4.0"
     },
     "devDependencies": {
+        "@babel/plugin-transform-object-set-prototype-of-to-assign": "^7.2.0",
+        "@babel/runtime": "^7.3.1",
+        "bs-platform": "^4.0.6",
+        "copy-webpack-plugin": "^4.5.2",
+        "css-loader": "^2.1.0",
+        "style-loader": "^0.23.1",
         "webpack": "^4.17.1",
         "webpack-cli": "^3.1.0",
-        "copy-webpack-plugin": "^4.5.2",
-        "webpack-dev-server": "^3.1.5",
-        "bs-platform": "^4.0.6",
-        "css-loader": "^2.0.0",
-        "style-loader": "^0.23.1"
+        "webpack-dev-server": "^3.1.5"
     },
     "scripts": {
         "start": "webpack && webpack-dev-server --mode development",

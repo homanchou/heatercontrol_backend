@@ -5,10 +5,8 @@ let url = "http://localhost:5000/";
 type heaterStatus = {
   minTemp: float,
   maxTemp: float,
-  lastTempReading: float,
-  econoMode: bool,
+  temp: float,
   disabled: bool,
-  forcedOnTimeLimit: option(Js.Date.t),
   heaterOn: bool,
 };
 
@@ -26,25 +24,18 @@ let component = ReasonReact.reducerComponent(__MODULE__);
 
 module Api = {
   let decode = (j: Js.Json.t): heaterStatus => {
-    lastTempReading:
-      j |> Json.Decode.field("last_temp_reading", Json.Decode.float),
     heaterOn: j |> Json.Decode.field("heater_on", Json.Decode.bool),
     minTemp: j |> Json.Decode.field("min_temp", Json.Decode.float),
+    temp: j |> Json.Decode.field("temp", Json.Decode.float),
     maxTemp: j |> Json.Decode.field("max_temp", Json.Decode.float),
-    econoMode: j |> Json.Decode.field("econo_mode", Json.Decode.bool),
     disabled: j |> Json.Decode.field("disabled", Json.Decode.bool),
-    forcedOnTimeLimit:
-      j
-      |> Json.Decode.optional(
-           Json.Decode.field("forced_on_time_limit", Json.Decode.date),
-         ),
   };
 
   let enable = () =>
     Js.Promise.(
       Fetch.fetchWithInit(
-        url ++ "disable",
-        Fetch.RequestInit.make(~method_=Delete, ()),
+        url ++ "enable",
+        Fetch.RequestInit.make(~method_=Post, ()),
       )
       |> then_(Fetch.Response.json)
       |> then_(json => decode(json) |> resolve)
@@ -128,11 +119,6 @@ let make = _children => {
         <h1>
           {ReasonReact.string(hs.heaterOn ? "Heater is ON" : "Heater is OFF")}
         </h1>
-        <h2>
-          {ReasonReact.string(
-             "Temperature: " ++ string_of_float(hs.lastTempReading),
-           )}
-        </h2>
         <h3>
           {ReasonReact.string(
              "Heater will turn on when temp is below: "
@@ -145,6 +131,7 @@ let make = _children => {
              ++ string_of_float(hs.maxTemp),
            )}
         </h3>
+        <ReactDualRangeSlider limits=[|0, 10|] values=[|2, 5|] />
         <label className="switch">
           <input
             type_="checkbox"
@@ -154,7 +141,7 @@ let make = _children => {
           <span className="slider round" />
         </label>
         {hs.disabled ?
-           <div> {ReasonReact.string("The heater is at ")} </div> :
+           <div> {ReasonReact.string("The heater is disabled")} </div> :
            ReasonReact.null}
       </div>
     };
