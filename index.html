@@ -128,9 +128,25 @@
         <div class="app-header">
             Heater Control
         </div>
-        <div id="root"></div>
+        <div id="app">
+            {{ message }}
+        </div>
     </div>
-    <script src="main.bundle.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.18.0/axios.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.5.22/dist/vue.js"></script>
+    <script>
+        var app = new Vue({
+            el: '#app',
+            data: {
+                message: 'Hello Vue!'
+            },
+            created: function () {
+                axios.get("http://localhost:5000/status").then(function (result) {
+                    console.log(result.data)
+                })
+            }
+        })
+    </script>
 </body>
 
 </html>

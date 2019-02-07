@@ -6,45 +6,35 @@ import (
 	"time"
 )
 
-const DefaultDaytimeMinTemp = 60.0
-const DefaultDaytimeMaxTemp = 65.0
-const DefaultNighttimeMinTemp = 70.99
-const DefaultNighttimeMaxTemp = 72.1
+const DefaultDaytimeTemp = 60.0
+const DefaultNighttimeTemp = 71.8
+const buffer = 0.2
 
 type HeaterState struct {
-	MinTemp              float64    `json:"min_temp"`
-	MaxTemp              float64    `json:"max_temp"`
-	Disabled             bool       `json:"disabled"`
+	DesiredTemp          float64    `json:"desired_temp"`
+	Enabled              bool       `json:"enabled"`
 	CustomRangeTimeLimit *time.Time `json:"custom_range_time_limit"`
-	// HeaterOn             bool       `json:"heater_on"`
-	LastTempReading float64   `json:"last_temp_reading"`
-	LastUpdatedAt   time.Time `json:"last_updated_at`
-	// pinCtrl              PinCtrl
-	// tempReader           TemperatureReader
-	mu sync.Mutex
+	LastTempReading      float64    `json:"last_temp_reading"`
+	LastUpdatedAt        time.Time  `json:"last_updated_at`
+	mu                   sync.Mutex
 }
 
 func NewHeaterState(localTime time.Time, temp float64) *HeaterState {
-	var minTemp float64
-	var maxTemp float64
-	if IsDayTime(localTime) {
-		minTemp = DefaultDaytimeMinTemp
-		maxTemp = DefaultDaytimeMaxTemp
-	} else {
-		minTemp = DefaultNighttimeMinTemp
-		maxTemp = DefaultNighttimeMaxTemp
-	}
-
-	return &HeaterState{
-		MinTemp:              minTemp,
-		MaxTemp:              maxTemp,
-		Disabled:             false,
+	newHeater := HeaterState{
+		Enabled:              true,
 		CustomRangeTimeLimit: nil,
-		// HeaterOn:             false,
-		LastTempReading: temp,
-		LastUpdatedAt:   localTime,
-		// pinCtrl:              pc,
-		// tempReader:           tr,
+		LastTempReading:      temp,
+		LastUpdatedAt:        localTime,
+	}
+	newHeater.ResetDefaultTemp(localTime)
+	return &newHeater
+}
+
+func (hs *HeaterState) ResetDefaultTemp(localTime time.Time) {
+	if IsDayTime(localTime) {
+		hs.DesiredTemp = DefaultDaytimeTemp
+	} else {
+		hs.DesiredTemp = DefaultNighttimeTemp
 	}
 }
 
@@ -52,46 +42,35 @@ func (hs *HeaterState) RefreshTimeAndTemp(newTime time.Time, newTemp float64) He
 	if hs.CustomRangeTimeLimit != nil {
 		if newTime.After(*hs.CustomRangeTimeLimit) {
 			hs.CustomRangeTimeLimit = nil // clear the timer
-			if IsDayTime(newTime) {
-				hs.MinTemp = DefaultDaytimeMinTemp
-				hs.MaxTemp = DefaultDaytimeMaxTemp
-			} else {
-				hs.MinTemp = DefaultNighttimeMinTemp
-				hs.MaxTemp = DefaultNighttimeMaxTemp
-			}
+			hs.ResetDefaultTemp(newTime)
 		}
 	} else
 	// going from daytime to night time
 	if IsDayTime(hs.LastUpdatedAt) && !IsDayTime(newTime) {
 		log.Println("daytime to nighttime", hs.LastUpdatedAt, newTime)
-		hs.MinTemp = DefaultNighttimeMinTemp
-		hs.MaxTemp = DefaultNighttimeMaxTemp
+		hs.ResetDefaultTemp(newTime)
 	} else if !IsDayTime(hs.LastUpdatedAt) && IsDayTime(newTime) {
 		//night time to daytime
 		log.Println("nighttime to daytime", hs.LastUpdatedAt, newTime)
-		hs.MinTemp = DefaultDaytimeMinTemp
-		hs.MaxTemp = DefaultDaytimeMaxTemp
+		hs.ResetDefaultTemp(newTime)
 	}
 	hs.LastUpdatedAt = newTime
 	hs.LastTempReading = newTemp
-	if hs.Disabled {
+
+	if !hs.Enabled {
 		return Off
 	}
-	if newTemp > hs.MaxTemp {
+	if newTemp >= hs.DesiredTemp+buffer {
 		return Off
 	}
-	if newTemp < hs.MinTemp {
+	if newTemp <= hs.DesiredTemp-buffer {
 		return On
 	}
 	return NoAction
 }
 
-func (hs *HeaterState) SetMaxTemp(temp float64) {
-	hs.MaxTemp = temp
-}
-
-func (hs *HeaterState) SetMinTemp(temp float64) {
-	hs.MinTemp = temp
+func (hs *HeaterState) SetDesiredTemp(temp float64) {
+	hs.DesiredTemp = temp
 }
 
 func (hs *HeaterState) SetCustomRangeTimeOut(expireTime time.Time) {
@@ -99,11 +78,11 @@ func (hs *HeaterState) SetCustomRangeTimeOut(expireTime time.Time) {
 }
 
 func (hs *HeaterState) Disable() {
-	hs.Disabled = true
+	hs.Enabled = false
 }
 
 func (hs *HeaterState) Enable() {
-	hs.Disabled = false
+	hs.Enabled = true
 
 }
 
@@ -114,29 +93,6 @@ const (
 	On
 	NoAction
 )
-
-// func (hs *HeaterState) StartRefreshRoutine() {
-// 	// go func() {
-// 	// 	for {
-// 	// 		// app.RefreshHeater()
-// 	// 		time.Sleep(10 * time.Second)
-// 	// 	}
-// 	// }()
-// }
-
-// func (hs *HeaterState) NextAction(localTime time.Time, temp float64) HeaterCommand {
-
-// 	if hs.Disabled {
-// 		return Off //no-op
-// 	}
-// 	if temp > hs.MaxTemp {
-// 		return Off
-// 	}
-// 	if temp < hs.MinTemp {
-// 		return On
-// 	}
-// 	return NoAction
-// }
 
 func IsDayTime(t time.Time) bool {
 	tz := "America/Los_Angeles"

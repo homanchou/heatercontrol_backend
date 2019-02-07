@@ -3,35 +3,8 @@
     "version": "1.0.0",
     "description": "Frontend for heater control",
     "dependencies": {
-        "@glennsl/bs-json": "^3.0.0",
-        "bs-fetch": "^0.3.1",
-        "bs-glamor": "^0.2.0",
-        "react": "^16.2.0",
-        "react-dom": "^16.2.0",
-        "react-dual-range-slider": "^1.0.4",
-        "react-intl": "^2.8.0",
-        "reason-react": ">=0.4.0"
+        "axios": "^0.18.0"
     },
-    "devDependencies": {
-        "@babel/plugin-transform-object-set-prototype-of-to-assign": "^7.2.0",
-        "@babel/runtime": "^7.3.1",
-        "bs-platform": "^4.0.6",
-        "copy-webpack-plugin": "^4.5.2",
-        "css-loader": "^2.1.0",
-        "style-loader": "^0.23.1",
-        "webpack": "^4.17.1",
-        "webpack-cli": "^3.1.0",
-        "webpack-dev-server": "^3.1.5"
-    },
-    "scripts": {
-        "start": "webpack && webpack-dev-server --mode development",
-        "build": "webpack",
-        "dev:build": "bsb -make-world",
-        "dev:watch": "bsb -make-world -w",
-        "dev:server": "webpack-dev-server",
-        "dev:clean": "bsb -clean-world",
-        "test": "echo \"Error: no test specified\" && exit 1",
-        "webpack": "webpack -w",
-        "webpack:production": "NODE_ENV=production webpack"
-    }
+    "devDependencies": {},
+    "scripts": {}
 }

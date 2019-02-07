@@ -29,5 +29,5 @@ func (s *SensorReader) ReadTemperature() (temp float64, err error) {
 type MockSensorReader struct{}
 
 func (ms *MockSensorReader) ReadTemperature() (temp float64, err error) {
-	return 75.99, nil
+	return 60.98923, nil
 }
